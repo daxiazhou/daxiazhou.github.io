@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <title>Porter-Duff Blending 实现镂空文字效果</title>
+  <meta name="description" content="Blend Modes在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:">
+  <meta name="author" content="Wei Wang">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Porter-Duff Blending 实现镂空文字效果">
+  <meta name="twitter:description" content="Blend Modes在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:">
+  
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Porter-Duff Blending 实现镂空文字效果">
+  <meta property="og:description" content="Blend Modes在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:">
+  
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+  <link href="/assets/images/favicon.png" rel="shortcut icon" type="image/png">
+  
+  <link rel="stylesheet" href="/css/main.css">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+
+  <link rel="canonical" href="http://zdaxia.com/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/">
+  <link rel="alternate" type="application/rss+xml" title="Da xia 的技术博客" href="http://zdaxia.com/feed.xml">
+  
+  <meta name="google-site-verification" content="1-1ZlHoRvM0T2FqPbW2S-qLgYXN6rsn52kErlMPd_gw" />
+  <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js">
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?4f454f730041ad0129a441e44852687b";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+</head>
+
+
+  <body>
+
+    <span class="mobile btn-mobile-menu">
+        <i class="fa fa-list btn-mobile-menu__icon"></i>
+        <i class="fa fa-angle-up btn-mobile-close__icon hidden"></i>
+    </span>
+    
+    <header class="panel-cover panel-cover--collapsed" style="background-image: url('/assets/images/background-cover.jpg')">
+  <div class="panel-main">
+
+    <div class="panel-main__inner panel-inverted">
+    <div class="panel-main__content">
+
+        <a href="/#blog" title="前往 Da xia 的技术博客 的主页" class="blog-button"><img src="/assets/images/avatar.jpg" width="80" alt="Da xia 的技术博客 logo" class="panel-cover__logo logo" /></a>
+        <h1 class="panel-cover__title panel-title"><a href="/#blog" title="link to homepage for Da xia 的技术博客" class="blog-button">Da xia 的技术博客</a></h1>
+        
+        <span class="panel-cover__subtitle panel-subtitle">不积跬步，无以至千里.</span>
+        
+        <hr class="panel-cover__divider" />
+        <p class="panel-cover__description">北京</p>
+        <hr class="panel-cover__divider panel-cover__divider--secondary" />
+        
+        
+        <p class="panel-cover__description">欢迎访问我的博客，这里主要记录我的工作和生活</p>
+        
+        
+        <div class="navigation-wrapper">
+          <div>
+            <nav class="cover-navigation cover-navigation--primary">
+              <ul class="navigation">
+                <li class="navigation__item"><a href="/#blog" title="访问博客" class="blog-button">博客</a></li>
+                
+                  <li class="navigation__item"><a href="#" target="_blank" title="了解更多关于我">关于</a></li>
+                
+              </ul>
+            </nav>
+          </div>
+          
+          <div><nav class="cover-navigation navigation--social">
+  <ul class="navigation">
+
+  
+
+  
+  
+  
+
+  
+
+  <!-- RSS -->
+  <li class="navigation__item">
+    <a href="/feed.xml" rel="author" title="RSS" target="_blank">
+      <i class='social fa fa-rss'></i>
+      <span class="label">RSS</span>
+    </a>
+  </li>
+
+  
+  <!-- Email -->
+  <li class="navigation__item">
+    <a href="mailto:woshizhoudaixa@gmail.com" title="Contact me">
+      <i class='social fa fa-envelope'></i>
+      <span class="label">Email</span>
+    </a>
+  </li>
+  
+
+  </ul>
+</nav>
+</div>
+        </div>
+      </div>
+    </div>
+    
+    
+    <div class="panel-cover--overlay cover-slate"></div>
+    
+  </div>
+</header>
+
+
+    <div class="content-wrapper">
+        <div class="content-wrapper__inner">
+            <article class="post-container post-container--single" itemscope itemtype="http://schema.org/BlogPosting">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2019-02-14 18:36:24 +0800" itemprop="datePublished" class="post-meta__date date">2019-02-14</time>
+      <span class="post-meta__tags tags"></span>
+      <span class="post-meta__date date" id="busuanzi_container_page_pv"> | 访问量：<span id="busuanzi_value_page_pv"></span> 次</span>
+    </div>
+    <h1 class="post-title">Porter-Duff Blending 实现镂空文字效果</h1>
+  </header>
+
+  <section class="post">
+    <h3>Blend Modes</h3>
+
+<p>在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:</p>
+
+<ol>
+<li>绘制背景</li>
+<li>设置 <a href="https://developer.apple.com/documentation/coregraphics/1455994-cgcontextsetblendmode">CGContextSetBlendMode</a></li>
+<li>绘制图片到背景上</li>
+</ol>
+
+<p>有两张图片</p>
+
+<div align=center>
+<img src="../../../images/Blend-Model/both_images.jpg" width = "500"/>
+</div>
+
+<!--![](../images/Blend-Model/both_images.jpg)
+-->
+
+<p>使用 <code>kCGBlendModeMultiply</code> 混合后的结果是这样的：</p>
+
+<div align=center>
+<img src="../../../images/Blend-Model/multiply_image.jpg" width = "250"/>
+</div>
+
+<!--![](../images/Blend-Model/multiply_image.jpg)
+-->
+
+<p><code>CGBlendMode</code> 定义了很多种混合模式供我们使用，其中第一部分的混合效果在 <a href="https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBIJEFG">Using Blend Modes with Images</a> 可以查看。下一节一起来了解下 第二部分的混合模式（Porter-Duff）。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">typedef CF_ENUM (int32_t, CGBlendMode) {
+    /* Available in Mac OS X 10.4 &amp; later. */
+    kCGBlendModeNormal,
+    kCGBlendModeMultiply,
+    kCGBlendModeScreen,
+    kCGBlendModeOverlay,
+    kCGBlendModeDarken,
+    kCGBlendModeLighten,
+    kCGBlendModeColorDodge,
+    kCGBlendModeColorBurn,
+    kCGBlendModeSoftLight,
+    kCGBlendModeHardLight,
+    kCGBlendModeDifference,
+    kCGBlendModeExclusion,
+    kCGBlendModeHue,
+    kCGBlendModeSaturation,
+    kCGBlendModeColor,
+    kCGBlendModeLuminosity,
+
+    /* Available in Mac OS X 10.5 &amp; later. R, S, and D are, respectively,
+       premultiplied result, source, and destination colors with alpha; Ra,
+       Sa, and Da are the alpha components of these colors.
+
+       The Porter-Duff &quot;source over&quot; mode is called `kCGBlendModeNormal&#39;:
+         R = S + D*(1 - Sa)
+
+       Note that the Porter-Duff &quot;XOR&quot; mode is only titularly related to the
+       classical bitmap XOR operation (which is unsupported by
+       CoreGraphics). */
+
+    kCGBlendModeClear,                  /* R = 0 */
+    kCGBlendModeCopy,                   /* R = S */
+    kCGBlendModeSourceIn,               /* R = S*Da */
+    kCGBlendModeSourceOut,              /* R = S*(1 - Da) */
+    kCGBlendModeSourceAtop,             /* R = S*Da + D*(1 - Sa) */
+    kCGBlendModeDestinationOver,        /* R = S*(1 - Da) + D */
+    kCGBlendModeDestinationIn,          /* R = D*Sa */
+    kCGBlendModeDestinationOut,         /* R = D*(1 - Sa) */
+    kCGBlendModeDestinationAtop,        /* R = S*(1 - Da) + D*Sa */
+    kCGBlendModeXOR,                    /* R = S*(1 - Da) + D*(1 - Sa) */
+    kCGBlendModePlusDarker,             /* R = MAX(0, (1 - D) + (1 - S)) */
+    kCGBlendModePlusLighter             /* R = MIN(1, S + D) */
+};
+</code></pre></figure>
+<h3>Porter-Duff</h3>
+
+<p>Porter-Duff 这个名词是为了表达对 Thomas Porter 和 Tom Duff 的敬意，他们于 1984 年发表了一篇名为 “<a href="https://dl.acm.org/citation.cfm?id=808606">Compositing Digital Images</a>”的开创性论文。在这篇文章中，两位作者描述了12种合成操作符，具体来说就是当我们把原图像绘制到目标图像处时应该如何计算二者结合后的颜色。由于 Porter 和 Duff 的工作只关注原图像和目标图像共同绘制对 alpha 通道（即我们所理解的透明度）的影响，所以我们又把在他们论文所提到的 12 种操作称为 alpha 合成模式。下面看一下这 12 中合成模式的结果：</p>
+
+<p>有两张图片</p>
+
+<p><center class="half">
+    <img src="../../../images/Blend-Model/source.png" width = "256"/><img src="../../../images/Blend-Model/destination.png" width = "256"/>
+</center></p>
+
+<!--![](../images/Blend-Model/source.png)
+![](../images/Blend-Model/destination.png)-->
+
+<p>使用下面的代码测试混合后的效果：</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">- (UIImage *)blendImageWithSize:(CGSize)size
+{
+    UIGraphicsBeginImageContext(size);
+
+    UIImage *destinationImg = [UIImage imageNamed:@&quot;destination.png&quot;];
+    [destinationImg drawInRect:CGRectMake(0, 0, size.width, size.height) blendMode:kCGBlendModeNormal alpha:1.f];
+    UIImage *sourceImg = [UIImage imageNamed:@&quot;source.png&quot;];
+    [sourceImg drawInRect:CGRectMake(0, 0, size.width, size.height) blendMode:kCGBlendModeCopy alpha:1.f];
+    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+
+    UIGraphicsEndImageContext();
+
+    return newImage;
+}
+</code></pre></figure>
+<div align=center>
+    <img src="../../../images/Blend-Model/porter-duff.jpg" width = "800"/>
+</div>
+
+<!--![](../images/Blend-Model/porter-duff.jpg)
+-->
+
+<p>Demo 在<a href="https://github.com/daxiazhou/Demos/tree/master/BlendModesDemo">这里</a>，可以手动运行起来试试各种混合模式的效果。</p>
+
+<h3>实现镂空文字效果</h3>
+
+<p>了解了各种混合模式的效果，实现镂空文字效果就不难了。自定义一个 Label，重写 <code>drawRect:</code> 方法，组合运用混合模式就可以实现。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">- (void)drawRect:(CGRect)rect {
+    [super drawRect:rect];
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    // 绘制圆角
+    if (self.cornerRadius) {
+        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:self.cornerRadius];
+        [path addClip];
+        CGContextAddPath(context, path.CGPath);
+    }
+
+    CGContextSaveGState(context);
+    // 文字以外区域颜色
+    if (self.fillColor) {
+        [self.fillColor setFill];
+        UIRectFill(rect);
+    }
+
+    // 借助 UILabel 绘制文字
+    CGContextSetBlendMode(context, kCGBlendModeDestinationOut);
+    UILabel *label = [[UILabel alloc] initWithFrame:rect];
+    label.font = self.font;
+    label.text = self.text;
+    label.textAlignment = self.textAlignment;
+    label.backgroundColor = [UIColor clearColor];
+    [label.layer drawInContext:context];
+    CGContextRestoreGState(context);
+
+    // 还可以在镂空文字上加半透明蒙层
+//    UIColor *textColor = [[UIColor blackColor] colorWithAlphaComponent:0.2];
+//    [textColor setFill];
+//    UIRectFillUsingBlendMode(rect, kCGBlendModeDestinationOver);
+
+}
+</code></pre></figure>
+<p>成果展示</p>
+
+<div align=center>
+    <img src="../../../images/Blend-Model/hollowLabelSample.jpg" width = "320"/>
+</div>
+
+<!--![](../images/Blend-Model/hollowLabelSample.jpg)
+-->
+
+<h3>参考文章</h3>
+
+<ul>
+<li><a href="https://123sunxiaolin.github.io/2017/03/26/%5BUIVIew%5D%E8%B0%88%E8%B0%88%E5%AF%B9drawRect%E7%9A%84%E7%90%86%E8%A7%A3/">谈谈对drawRect的理解</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Alpha_compositing">Alpha compositing</a></li>
+<li><a href="https://onevcat.com/2013/04/using-blending-in-ios/">iOS中使用blend改变图片颜色
+</a></li>
+</ul>
+
+  </section>
+</article>
+
+<section class="read-more">
+   
+   
+   
+   
+   <div class="read-more-item">
+       <span class="read-more-item-dim">更早的文章</span>
+       <h2 class="post-list__post-title post-title"><a href="/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/" title="link to CoreText 实现镂空文字效果">CoreText 实现镂空文字效果</a></h2>
+       <p class="excerpt">CoreText 基础CoreText 是用于处理文字和字体的底层技术。它直接和 Core Graphics 交互，具有很高的文字渲染效率。CoreText 对象的架构图CTFramesetter 接受 NSSAttributedString 和 CGPath 参数，创建一个或者多个 CTFrame。每个 CTFrame 代表一个段落，包含一行或者多行文字，也就是 CTLine。在创建 CTFrame 时有几个生成了 CTLine，它可以直接渲染到 graphics context。CTR...&hellip;</p>
+       <div class="post-list__meta"><time datetime="2019-01-06 18:36:24 +0800" class="post-list__meta--date date">2019-01-06</time> &#8226; <span class="post-list__meta--tags tags"></span><a class="btn-border-small" href=/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/>继续阅读</a></div>
+   </div>
+   
+</section>
+
+<section class="post-comments">
+  
+    <div class="ds-thread" data-thread-key="/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/" data-title="Porter-Duff Blending 实现镂空文字效果" data-url="http://zdaxia.com/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/"></div>
+    <script type="text/javascript">
+        var duoshuoQuery = {short_name:"snail"};
+        (function() {
+            var ds = document.createElement('script');
+            ds.type = 'text/javascript';ds.async = true;
+            ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+            ds.charset = 'UTF-8';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+        })();
+    </script>
+  
+  
+  
+  
+</section>
+
+
+            <section class="footer">
+    <footer>
+    	<span class="footer__copyright">本站点采用<a href="http://creativecommons.org/licenses/by-nc-sa/4.0/">知识共享 署名-非商业性使用-相同方式共享 4.0 国际 许可协议</a></span>
+        <span class="footer__copyright">由 <a href="https://jekyllrb.com">Jekyll</a> 于 2019-02-15 生成，感谢 <a href="https://github.com/">Github</a> 为本站提供存储空间</span>
+        <span class="footer__copyright">本站由 <a href="http://zdaxia.com">@zdaxia</a> 创建，采用 <a href="https://github.com/onevcat/vno-jekyll">Vno - Jekyll</a> 作为主题，您可以在 GitHub 找到<a href="https://github.com/daxiazhou/daxiazhou.github.io">本站源码</a> - &copy; 2019</span>
+        <span id="busuanzi_container_site_pv">本站总访问量：<span id="busuanzi_value_site_pv"></span>次</span>
+
+    </footer>
+</section>
+
+        </div>
+    </div>
+    
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+
+<script type="text/javascript" src="/js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<script type="text/javascript" src="/js/main.js"></script>
+
+
+<script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-82111433-1', 'zdaxia.com');
+    ga('send', 'pageview');
+</script>
+
+
+    
+  </body>
+
+</html>

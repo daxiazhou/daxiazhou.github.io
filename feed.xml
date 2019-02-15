@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Da xia 的技术博客</title>
+    <description>北京</description>
+    <link>http://zdaxia.com/</link>
+    <atom:link href="http://zdaxia.com/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Fri, 15 Feb 2019 14:51:59 +0800</pubDate>
+    <lastBuildDate>Fri, 15 Feb 2019 14:51:59 +0800</lastBuildDate>
+    <generator>Jekyll v3.2.0</generator>
+    
+      <item>
+        <title>Porter-Duff Blending 实现镂空文字效果</title>
+        <description>&lt;h3&gt;Blend Modes&lt;/h3&gt;
+
+&lt;p&gt;在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;绘制背景&lt;/li&gt;
+&lt;li&gt;设置 &lt;a href=&quot;https://developer.apple.com/documentation/coregraphics/1455994-cgcontextsetblendmode&quot;&gt;CGContextSetBlendMode&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;绘制图片到背景上&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;有两张图片&lt;/p&gt;
+
+&lt;div align=center&gt;
+&lt;img src=&quot;../../../images/Blend-Model/both_images.jpg&quot; width = &quot;500&quot;/&gt;
+&lt;/div&gt;
+
+&lt;!--![](../images/Blend-Model/both_images.jpg)
+--&gt;
+
+&lt;p&gt;使用 &lt;code&gt;kCGBlendModeMultiply&lt;/code&gt; 混合后的结果是这样的：&lt;/p&gt;
+
+&lt;div align=center&gt;
+&lt;img src=&quot;../../../images/Blend-Model/multiply_image.jpg&quot; width = &quot;250&quot;/&gt;
+&lt;/div&gt;
+
+&lt;!--![](../images/Blend-Model/multiply_image.jpg)
+--&gt;
+
+&lt;p&gt;&lt;code&gt;CGBlendMode&lt;/code&gt; 定义了很多种混合模式供我们使用，其中第一部分的混合效果在 &lt;a href=&quot;https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_images/dq_images.html#//apple_ref/doc/uid/TP30001066-CH212-CJBIJEFG&quot;&gt;Using Blend Modes with Images&lt;/a&gt; 可以查看。下一节一起来了解下 第二部分的混合模式（Porter-Duff）。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;typedef CF_ENUM (int32_t, CGBlendMode) {
+    /* Available in Mac OS X 10.4 &amp;amp; later. */
+    kCGBlendModeNormal,
+    kCGBlendModeMultiply,
+    kCGBlendModeScreen,
+    kCGBlendModeOverlay,
+    kCGBlendModeDarken,
+    kCGBlendModeLighten,
+    kCGBlendModeColorDodge,
+    kCGBlendModeColorBurn,
+    kCGBlendModeSoftLight,
+    kCGBlendModeHardLight,
+    kCGBlendModeDifference,
+    kCGBlendModeExclusion,
+    kCGBlendModeHue,
+    kCGBlendModeSaturation,
+    kCGBlendModeColor,
+    kCGBlendModeLuminosity,
+
+    /* Available in Mac OS X 10.5 &amp;amp; later. R, S, and D are, respectively,
+       premultiplied result, source, and destination colors with alpha; Ra,
+       Sa, and Da are the alpha components of these colors.
+
+       The Porter-Duff &amp;quot;source over&amp;quot; mode is called `kCGBlendModeNormal&amp;#39;:
+         R = S + D*(1 - Sa)
+
+       Note that the Porter-Duff &amp;quot;XOR&amp;quot; mode is only titularly related to the
+       classical bitmap XOR operation (which is unsupported by
+       CoreGraphics). */
+
+    kCGBlendModeClear,                  /* R = 0 */
+    kCGBlendModeCopy,                   /* R = S */
+    kCGBlendModeSourceIn,               /* R = S*Da */
+    kCGBlendModeSourceOut,              /* R = S*(1 - Da) */
+    kCGBlendModeSourceAtop,             /* R = S*Da + D*(1 - Sa) */
+    kCGBlendModeDestinationOver,        /* R = S*(1 - Da) + D */
+    kCGBlendModeDestinationIn,          /* R = D*Sa */
+    kCGBlendModeDestinationOut,         /* R = D*(1 - Sa) */
+    kCGBlendModeDestinationAtop,        /* R = S*(1 - Da) + D*Sa */
+    kCGBlendModeXOR,                    /* R = S*(1 - Da) + D*(1 - Sa) */
+    kCGBlendModePlusDarker,             /* R = MAX(0, (1 - D) + (1 - S)) */
+    kCGBlendModePlusLighter             /* R = MIN(1, S + D) */
+};
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;h3&gt;Porter-Duff&lt;/h3&gt;
+
+&lt;p&gt;Porter-Duff 这个名词是为了表达对 Thomas Porter 和 Tom Duff 的敬意，他们于 1984 年发表了一篇名为 “&lt;a href=&quot;https://dl.acm.org/citation.cfm?id=808606&quot;&gt;Compositing Digital Images&lt;/a&gt;”的开创性论文。在这篇文章中，两位作者描述了12种合成操作符，具体来说就是当我们把原图像绘制到目标图像处时应该如何计算二者结合后的颜色。由于 Porter 和 Duff 的工作只关注原图像和目标图像共同绘制对 alpha 通道（即我们所理解的透明度）的影响，所以我们又把在他们论文所提到的 12 种操作称为 alpha 合成模式。下面看一下这 12 中合成模式的结果：&lt;/p&gt;
+
+&lt;p&gt;有两张图片&lt;/p&gt;
+
+&lt;p&gt;&lt;center class=&quot;half&quot;&gt;
+    &lt;img src=&quot;../../../images/Blend-Model/source.png&quot; width = &quot;256&quot;/&gt;&lt;img src=&quot;../../../images/Blend-Model/destination.png&quot; width = &quot;256&quot;/&gt;
+&lt;/center&gt;&lt;/p&gt;
+
+&lt;!--![](../images/Blend-Model/source.png)
+![](../images/Blend-Model/destination.png)--&gt;
+
+&lt;p&gt;使用下面的代码测试混合后的效果：&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;- (UIImage *)blendImageWithSize:(CGSize)size
+{
+    UIGraphicsBeginImageContext(size);
+
+    UIImage *destinationImg = [UIImage imageNamed:@&amp;quot;destination.png&amp;quot;];
+    [destinationImg drawInRect:CGRectMake(0, 0, size.width, size.height) blendMode:kCGBlendModeNormal alpha:1.f];
+    UIImage *sourceImg = [UIImage imageNamed:@&amp;quot;source.png&amp;quot;];
+    [sourceImg drawInRect:CGRectMake(0, 0, size.width, size.height) blendMode:kCGBlendModeCopy alpha:1.f];
+    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+
+    UIGraphicsEndImageContext();
+
+    return newImage;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;div align=center&gt;
+    &lt;img src=&quot;../../../images/Blend-Model/porter-duff.jpg&quot; width = &quot;800&quot;/&gt;
+&lt;/div&gt;
+
+&lt;!--![](../images/Blend-Model/porter-duff.jpg)
+--&gt;
+
+&lt;p&gt;Demo 在&lt;a href=&quot;https://github.com/daxiazhou/Demos/tree/master/BlendModesDemo&quot;&gt;这里&lt;/a&gt;，可以手动运行起来试试各种混合模式的效果。&lt;/p&gt;
+
+&lt;h3&gt;实现镂空文字效果&lt;/h3&gt;
+
+&lt;p&gt;了解了各种混合模式的效果，实现镂空文字效果就不难了。自定义一个 Label，重写 &lt;code&gt;drawRect:&lt;/code&gt; 方法，组合运用混合模式就可以实现。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;- (void)drawRect:(CGRect)rect {
+    [super drawRect:rect];
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    // 绘制圆角
+    if (self.cornerRadius) {
+        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:self.cornerRadius];
+        [path addClip];
+        CGContextAddPath(context, path.CGPath);
+    }
+
+    CGContextSaveGState(context);
+    // 文字以外区域颜色
+    if (self.fillColor) {
+        [self.fillColor setFill];
+        UIRectFill(rect);
+    }
+
+    // 借助 UILabel 绘制文字
+    CGContextSetBlendMode(context, kCGBlendModeDestinationOut);
+    UILabel *label = [[UILabel alloc] initWithFrame:rect];
+    label.font = self.font;
+    label.text = self.text;
+    label.textAlignment = self.textAlignment;
+    label.backgroundColor = [UIColor clearColor];
+    [label.layer drawInContext:context];
+    CGContextRestoreGState(context);
+
+    // 还可以在镂空文字上加半透明蒙层
+//    UIColor *textColor = [[UIColor blackColor] colorWithAlphaComponent:0.2];
+//    [textColor setFill];
+//    UIRectFillUsingBlendMode(rect, kCGBlendModeDestinationOver);
+
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;成果展示&lt;/p&gt;
+
+&lt;div align=center&gt;
+    &lt;img src=&quot;../../../images/Blend-Model/hollowLabelSample.jpg&quot; width = &quot;320&quot;/&gt;
+&lt;/div&gt;
+
+&lt;!--![](../images/Blend-Model/hollowLabelSample.jpg)
+--&gt;
+
+&lt;h3&gt;参考文章&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https://123sunxiaolin.github.io/2017/03/26/%5BUIVIew%5D%E8%B0%88%E8%B0%88%E5%AF%B9drawRect%E7%9A%84%E7%90%86%E8%A7%A3/&quot;&gt;谈谈对drawRect的理解&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://en.wikipedia.org/wiki/Alpha_compositing&quot;&gt;Alpha compositing&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://onevcat.com/2013/04/using-blending-in-ios/&quot;&gt;iOS中使用blend改变图片颜色
+&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Thu, 14 Feb 2019 18:36:24 +0800</pubDate>
+        <link>http://zdaxia.com/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/</link>
+        <guid isPermaLink="true">http://zdaxia.com/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>CoreText 实现镂空文字效果</title>
+        <description>&lt;h3&gt;CoreText 基础&lt;/h3&gt;
+
+&lt;p&gt;CoreText 是用于处理文字和字体的底层技术。它直接和 Core Graphics 交互，具有很高的文字渲染效率。CoreText 对象的架构图&lt;/p&gt;
+
+&lt;div align=center&gt;
+&lt;img src=&quot;../../../images/CoreText_1/core_text_arch_2x.png&quot; width = &quot;600&quot;/&gt;
+&lt;/div&gt;
+
+&lt;p&gt;CTFramesetter 接受 NSSAttributedString 和 CGPath 参数，创建一个或者多个 CTFrame。每个 CTFrame 代表一个段落，包含一行或者多行文字，也就是 CTLine。在创建 CTFrame 时有几个生成了 CTLine，它可以直接渲染到 graphics context。CTRun 是一组具有共同属性和方向的连续字形(glyph)，每行可以报考一个或者多个 CTRun。&lt;/p&gt;
+
+&lt;h4&gt;绘制一段文字&lt;/h4&gt;
+
+&lt;p&gt;使用 CoreText 绘制一段文字一般需要估下过程：
+ * 创建 AttributedString，定义段落、字体等样式
+ * 获取 context，有时还需要转换 context 的坐标系
+ * 创建 CTFramesetter、绘制区域的 Path，生成 CTFrame
+ * 绘制，整段绘制（CTFrameDraw）或者逐行绘制（CTLineDraw）&lt;/p&gt;
+
+&lt;p&gt;下面的代码逐行绘制了一段文字，并为每一行画了一个红色边框：&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt; // UIView 子类中
+- (void)drawRect:(CGRect)rect
+{
+    // 1. 获取 context
+    CGContextRef context = UIGraphicsGetCurrentContext();
+
+    // 2. 翻转坐标系
+    CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+    CGContextTranslateCTM(context, 0, self.bounds.size.height);
+    CGContextScaleCTM(context, 1.0, -1.0);
+
+    // 3. CTFramesetterRef
+    CTFramesetterRef frameSetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)self.attrString);
+
+    // 4. 创建绘制区域
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, self.bounds);
+
+    // 5. 创建 CTFrame
+    CTFrameRef frame = CTFramesetterCreateFrame(frameSetter, CFRangeMake(0, self.attrString.length), path, NULL);
+
+
+    // 6. 绘制
+    //CTFrameDraw(frame, context);
+
+    // 逐行绘制
+    CFArrayRef Lines = CTFrameGetLines(frame);
+    CFIndex lineCount = CFArrayGetCount(Lines);
+    CGPoint origins[lineCount];
+    CTFrameGetLineOrigins(frame, CFRangeMake(0, 0), origins);
+    for (CFIndex i = 0 ; i &amp;lt; lineCount; i ++) {
+        CTLineRef line = CFArrayGetValueAtIndex(Lines, i);
+
+        CGPoint lineOrigin = origins[i];
+        CGContextSetTextPosition(context, lineOrigin.x, lineOrigin.y);
+
+        CGRect lineBounds = CTLineGetImageBounds((CTLineRef)line, context);
+        NSLog(@&amp;quot;lineBounds = %@&amp;quot;,NSStringFromCGRect(lineBounds));
+
+        CGContextSetLineWidth(context, 1.0);
+        CGContextAddRect(context, lineBounds);
+        CGContextSetStrokeColorWithColor(context, [UIColor redColor].CGColor);
+        CGContextStrokeRect(context, lineBounds);
+        CTLineDraw(line, context);
+    }
+
+    CFRelease(frame);
+    CFRelease(path);
+    CFRelease(frameSetter);
+}
+
+- (void)setAttrString:(NSAttributedString *)attrString
+{
+    if (_attrString != attrString) {
+        _attrString = attrString;
+        [self setNeedsDisplay];
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;绘制的文字：&lt;/p&gt;
+
+&lt;div align=center&gt;
+&lt;img src=&quot;../../../images/CoreText_1/DrawLines.jpg&quot; width = &quot;400&quot;/&gt;
+&lt;/div&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;上面代码中翻转了坐标系，这是因为 &lt;code&gt;drawRect:&lt;/code&gt; 方法中获取的当前 contenx 已经被调整为 UIKit 的坐标系了（左上角是原点），但是 CoreText 使用的是 Core Graphics 的坐标系（左下角是原点），所以要把当前 context 坐标系还原成左下角为原点。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3&gt;镂空文字效果&lt;/h3&gt;
+
+&lt;p&gt;实现镂空文字最简单的方法就是请设计师给一个文字镂空的切图，如果文案是动态配置的，这种方法就不行了。使用代码实现镂空效果要用到 CALayer 的 mask 属性。mask 也是一个 CALayer 对象，但只是用到它的轮廓，在轮廓内的父图层才能显示出来。&lt;/p&gt;
+
+&lt;div align=center&gt;
+ &lt;img src=&quot;../../../images/CoreText_1/calayer_mask.jpg&quot; width = &quot;400&quot;/&gt;
+&lt;/div&gt;
+
+&lt;p&gt;为了实现文字镂空效果，我们可以借助 CoreText 取出文字的 Path，创建 CAShapeLayer 绘制出文字外部的轮廓，将 CAShapeLayer 作为宿主图层的 mask。&lt;/p&gt;
+
+&lt;p&gt;第一步，取出文字的 path。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;+ (UIBezierPath *)singleLinePathWithText:(NSString *)text font:(UIFont *)font
+{
+    CTFontRef ctFont = CTFontCreateWithName((__bridge CFStringRef)font.fontName, font.pointSize, NULL);
+    if (!ctFont) {
+        return nil;
+    }
+    // 创建 attributedString
+    NSDictionary *attrs = @{(__bridge id)kCTFontAttributeName : (__bridge id)ctFont};
+    NSAttributedString *attrString = [[NSAttributedString alloc] initWithString:text attributes:attrs];
+    CFRelease(ctFont);
+
+    // 创建 Line
+    CTLineRef line = CTLineCreateWithAttributedString((__bridge CFTypeRef)attrString);
+    if (!line) {
+        return nil;
+    }
+
+    CGMutablePathRef cgPath = CGPathCreateMutable();
+    CFArrayRef runs = CTLineGetGlyphRuns(line);
+    for (CFIndex iRun = 0, iRunMax = CFArrayGetCount(runs); iRun &amp;lt; iRunMax; iRun ++) {
+        CTRunRef run = (CTRunRef)CFArrayGetValueAtIndex(runs, iRun);
+        CTFontRef runFont = CFDictionaryGetValue(CTRunGetAttributes(run), kCTFontAttributeName);
+        for (CFIndex iGlyph = 0, iGlyphMax = CTRunGetGlyphCount(run); iGlyph &amp;lt; iGlyphMax; iGlyph++) {
+            CFRange glyphRange = CFRangeMake(iGlyph, 1);
+            CGGlyph glyph;
+            CGPoint position;
+            CTRunGetGlyphs(run, glyphRange, &amp;amp;glyph);
+            CTRunGetPositions(run, glyphRange, &amp;amp;position);
+            // 读取文字的 path
+            CGPathRef glyphPath = CTFontCreatePathForGlyph(runFont, glyph, NULL);
+            if (glyphPath) {
+                CGAffineTransform transform = CGAffineTransformMakeTranslation(position.x, position.y);
+                CGPathAddPath(cgPath, &amp;amp;transform, glyphPath);
+                CGPathRelease(glyphPath);
+            }
+        }
+    }
+
+    UIBezierPath *path = [UIBezierPath bezierPathWithCGPath:cgPath];
+    CGRect boundingBox = CGPathGetPathBoundingBox(cgPath);
+    CFRelease(cgPath);
+    CFRelease(line);
+
+    // 翻转坐标系（变成左上角为原点）
+    [path applyTransform:CGAffineTransformMakeScale(1.0, -1.0)];
+    [path applyTransform:CGAffineTransformMakeTranslation(0.0, boundingBox.size.height)];
+
+    return path;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;第二步，创建 masklayer。我封装了一个简单的 View，将文字置于与视图的中间。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;// UIView 子类
+@implementation ZDXCutoutLabel
+
+- (void)updateWithText:(NSString *)text font:(UIFont *)font
+{
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.bounds];
+    UIBezierPath *textPath = [UIBezierPath singleLinePathWithText:text font:font];
+
+    CGRect textRect = CGPathGetPathBoundingBox(textPath.CGPath);
+    CGRect centerRect = RectCenteredInRect(textRect, self.bounds);
+    CGAffineTransform tansform = CGAffineTransformMakeTranslation(centerRect.origin.x - textRect.origin.x, centerRect.origin.y - textRect.origin.y);
+    [textPath applyTransform:tansform];
+    [path appendPath:textPath];
+
+    CAShapeLayer *pathLayer = [CAShapeLayer layer];
+    pathLayer.path = [path CGPath];
+    self.layer.mask = pathLayer;
+}
+
+@end
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;镂空文字效果，背景是一个 gif 图片。&lt;/p&gt;
+
+&lt;div align=center&gt;
+ &lt;img src=&quot;../../../images/CoreText_1/cutout_text.gif&quot; width = &quot;300&quot;/&gt;
+&lt;/div&gt;
+
+&lt;p&gt;图层结构:&lt;/p&gt;
+
+&lt;div align=center&gt;
+ &lt;img src=&quot;../../../images/CoreText_1/cutout_arc.jpg&quot; width = &quot;400&quot;/&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/daxiazhou/Demos/tree/master/NSStringPathDemo&quot;&gt;Demo 在这里&lt;/a&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sun, 06 Jan 2019 18:36:24 +0800</pubDate>
+        <link>http://zdaxia.com/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/</link>
+        <guid isPermaLink="true">http://zdaxia.com/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>识别 Emoji 表情</title>
+        <description>&lt;p&gt;在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。&lt;/p&gt;
+
+&lt;h3&gt;Unicode 字符集&lt;/h3&gt;
+
+&lt;p&gt;Unicode 标准为世界上几乎所有的[&lt;sup&gt;1]书写系统里所使用的每一个字符或符号定义了一个唯一的数字。这个数字叫做码点（code&lt;/sup&gt; points），以 U+xxxx 这样的格式写成，格式里的 xxxx 代表四到六个十六进制的数。&lt;/p&gt;
+
+&lt;p&gt;最初，Unicode 编码是被设计为 16 位的，提供了 65,536 个字符的空间。后来，考虑到要编码历史上的文字以及一些很少使用的日本汉字和中国汉字，Unicode 编码扩展到了 21 位（从 U+0000 到 U+10FFFF）。所以，我们现在接触到的 Unicode 是 21 位的编码。&lt;/p&gt;
+
+&lt;p&gt;编码空间被分成 17 个平面（plane），每个平面有 65,536 个字符。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;../../../images/UnicodePlanes.jpg&quot; alt=&quot;&quot;&gt;&lt;/p&gt;
+
+&lt;p&gt;0 号平面叫做「基本多文种平面」（Basic Multilingual Plane, BMP），涵盖了几乎所有你能遇到的字符。其它平面叫做补充平面，大多是空的。&lt;/p&gt;
+
+&lt;h3&gt;UTF 编码&lt;/h3&gt;
+
+&lt;p&gt;Unicode 定义了字符到码点的映射，具体如何在计算机上存储，就需要使用 UTF （Unicode Transformation Formats，简称 UTF）编码了。常见的编码格式有 UIF-32、UTF-16 和 UTF-8，看名字就知道它们含义，32、16、8 表示用于存储的长度。使用 32 位存储一个码点（码点长度 21 位）太浪费空间了，现实中很少使用。UTF-16 使用 16 位固定长度的码元，BMP 的范围在 0000-FFFF 之间，一个码点直接与一个码元相映射，使用 UTF-16 比 UTF-32 节省一半的空间。其它平面的字符超过了 16 位的表示范围，可以使用两个 UTF-16 码元组合起来表示，叫做代理对（surrogate pair）。NSString 使用的就是 UTF-16 编码存储字符串，下面会详细介绍。UTF-8 的用途更广泛，已经是文件格式、网络协议以及 Web API 领域里事实上的标准了，它与 emoji 的关系不大，这里不做详细介绍了。&lt;/p&gt;
+
+&lt;h3&gt;NSString 存储&lt;/h3&gt;
+
+&lt;p&gt;NSString 对象代表的其实是用 UTF-16 编码的码元组成的数组。相应地，length 方法的返回值也是字符串包含的码元个数（而不是字符个数）。试着打印 😛(U+1F61B) 的长度，输出 2。因为 U+1F61B 超出了 BMP 的范围，需要使用两个 UTF-16 码元组合成代理对表示。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt; NSString *emoji = @&amp;quot;😛&amp;quot;;
+ NSLog(@&amp;quot;emoji.length: %@&amp;quot;, @(emoji.length)); // emoji.length: 2
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;在工作中经常会遇到限制用户输入字符个数的需求，比如要求用户名最长不超过 10 个字符，一般情况下使用 length 判断就可以了，如果用户输入了 emoji 表情，使用 length 判断可能就不符合要求了。用户输入了 3 个 👨🏻‍⚕️（1F468 1F3FB 200D 2695 FE0F），打印出length 的长度是 21（每个 👨🏻‍⚕️ 长度为: 2 + 2 + 1 + 1 + 1），已经超过 10 ，提示用超长了肯定不合理。如何判断字符长度呢？&lt;code&gt;enumerateSubstringsInRange:options:usingBlock:&lt;/code&gt; 方法以字符为单位进行遍历，使用这个方法可以统计字符真正的长度。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;NSString *emoji = @&amp;quot;👨🏻‍⚕️👨🏻‍⚕️👨🏻‍⚕️&amp;quot;;
+NSLog(@&amp;quot;length: %@&amp;quot;, @(emoji.length)); // length: 21
+
+__block NSUInteger realLength = 0;
+[emoji enumerateSubstringsInRange:NSMakeRange(0, emoji.length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString * _Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL * _Nonnull stop) {
+    NSLog(@&amp;quot;==&amp;gt; subRange:%@, subStr:%@&amp;quot;, NSStringFromRange(substringRange), substring);
+    realLength += 1;
+}];
+NSLog(@&amp;quot;realLength: %@&amp;quot;, @(realLength)); // realLength: 3
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;h3&gt;emoji&lt;/h3&gt;
+
+&lt;p&gt;从&lt;a href=&quot;https://en.wikipedia.org/wiki/Emoji&quot;&gt;维基百科&lt;/a&gt;了解到目前 emoji 已经更新到 &lt;a href=&quot;https://unicode.org/Public/emoji/11.0/&quot;&gt;11.0&lt;/a&gt;，总共有 1212 个单码点的表情，还有更多的表情可以通过多个码点组合而成。具体的组合方式有：&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Emoji_Keycap_Sequence: 普调的字符 &lt;code&gt;#*0123456789&lt;/code&gt; 加上 FE0F 20E3 就变成了 #️⃣*️⃣0️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣。&lt;/li&gt;
+&lt;li&gt;Emoji_Flag_Sequence: 国旗表情，这类 emoji 串是通过两个地域指示符（regional_indicator）组合的方式来表示一个国家的国旗。如 🇿🇼(1F1FF 1F1FC)，总共 258 个。&lt;/li&gt;
+&lt;li&gt;Emoji_Modifier_Sequence: 不同肤色的表情，如 ☝️(261D) 加上 1F3FF 就变成了 ☝🏿(261D 1F3FF)，这类不同肤色的表情有 530 个。&lt;/li&gt;
+&lt;li&gt;Emoji_ZWJ_Sequence: 通过 ZWJ 字符（U+200D， Zero Width Joiner）将基本 emoji 字符或 Emoji_Modifier_Sequence连接起来，形成一个新的 emoji 表示样式，如 👨‍❤️‍👨(1F468 200D 2764 FE0F 200D 1F468) 由 👨(1F468) + ❤️(2764 FE0F) + 👨(1F468) 组合而成。这表情是表示一对基友么？&lt;/li&gt;
+&lt;li&gt;Emoji_Tag_Sequence: 只有三个 🏴󠁧󠁢󠁥󠁮󠁧󠁿、🏴󠁧󠁢󠁳󠁣󠁴󠁿、🏴󠁧󠁢󠁷󠁬󠁳󠁿。&lt;/li&gt;
+&lt;li&gt;Emoji_presentation_sequence: 即由基本 emoji 字符加上 U+FE0F 组合而成 emoji 序列串。例如 ❤️(U+26A1 U+FE0F)。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3&gt;识别字符串中的 emoji&lt;/h3&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://unicode.org/Public/emoji/11.0/emoji-data.txt&quot;&gt;emoji-data.txt&lt;/a&gt; 的第一个表格中包含了所有的单码点，总数是 1250，除去 &lt;code&gt;#*&lt;/code&gt;、&lt;code&gt;0-9&lt;/code&gt;和 &lt;code&gt;a-z&lt;/code&gt; 正好 1212 个。多码点 emoji 也是由单码点 emoji 追加一些特殊字符组合而成，所以只要字符的第一个码点在这个表格罗列的码点范围内，就可以判定它是 emoji。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;第一步&lt;/strong&gt;，提取表格中的码点。我用 Python 写了一个简单的脚本格式化码点范围，输出一个数组复制到 OC 代码中使用。&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+
+# 使用方法， python3 getEmojiData.py emoji-data.txt emoji-all-data.txt
+
+readPath = os.path.join(os.path.abspath(&amp;#39;.&amp;#39;), sys.argv[1])
+
+resultStr = &amp;#39;&amp;#39;
+with open(readPath, &amp;#39;r&amp;#39;) as f:
+    for line in f.readlines():
+        codeStr = line.partition(&amp;#39;;&amp;#39;)[0]
+        if len(codeStr.rstrip()) == 0:
+            continue
+        pointList = codeStr.rstrip().split(&amp;#39;..&amp;#39;)
+        formatPair = &amp;#39;&amp;#39;
+        if len(pointList) == 1:
+            formatPair = &amp;#39;{0x%s, 0x%s},&amp;#39; % (pointList[0], pointList[0])
+        else:
+            formatPair = &amp;#39;{0x%s, 0x%s},&amp;#39; % (pointList[0], pointList[1])
+        resultStr = resultStr + &amp;#39;\n&amp;#39; + formatPair
+
+writePath = os.path.join(os.path.abspath(&amp;#39;.&amp;#39;), sys.argv[2])
+with open(writePath, &amp;#39;w&amp;#39;) as f:
+    f.write(resultStr)
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;在 OC 代码中创建一个结构体数组，类似下面这样：&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;typedef struct {
+    uint32_t start;
+    uint32_t end;
+} CodePair;
+
+static CodePair CodePairList[] = {
+    {0x00A9, 0x00A9},
+    {0x00AE, 0x00AE},
+    {0x203C, 0x203C},
+    xxx
+
+   };
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;&lt;strong&gt;第二步&lt;/strong&gt;，遍历字符串中的字符，提取字符的第一个码点，判断是否在范围内。要区分两种情况，emoji 是单码点的，如 ©️(U+00A9)，直接用 &lt;code&gt;characterAtIndex&lt;/code&gt; 取码点；大部分 emoji 的码点数 &amp;gt;= 2，直接使用 &lt;code&gt;characterAtIndex&lt;/code&gt; 就不行了。例如😀(1F600)，打印出来得结果是：&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;NSString *emoji = @&amp;quot;😀&amp;quot;;
+NSLog(@&amp;quot;%x, %x&amp;quot;, [emoji characterAtIndex:0], [emoji characterAtIndex:1]); // d83d, de00
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;p&gt;Unicode 中有 17 个平面，在第 0 平面中，有一个特殊的代理区域，不表示任何字符，只用于指向第 1 到第 16 个平面中的字符，这段区域是：D800—DFFF.。其中 0xD800—0xDBFF 是前导代理(lead surrogates)，0xDC00—0xDFFF 是后尾代理(trail surrogates)。具体的公式：&lt;code&gt;0x10000 + (前导-0xD800) * 0x400 + (后导-0xDC00) = utf-16编码&lt;/code&gt;&lt;/p&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-objc&quot; data-lang=&quot;objc&quot;&gt;NSString *emoji = @&amp;quot;😀&amp;quot;;
+const unichar hs = [emoji characterAtIndex:0];
+if (0xd800 &amp;lt;= hs &amp;amp;&amp;amp; hs &amp;lt;= 0xdbff) {
+    if (emoji.length &amp;gt; 1) {
+        const unichar ls = [emoji characterAtIndex:1];
+        const int uc = ((hs - 0xd800) * 0x400) + (ls - 0xdc00) + 0x10000;
+        NSLog(@&amp;quot;%x&amp;quot;, uc); // 1f600
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;h4&gt;参考文档&lt;/h4&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https://objccn.io/issue-9-1/&quot;&gt;objccn.io: NSString 与 Unicode&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://mupceet.com/2018/07/emoji-distinguish&amp;amp;filter/&quot;&gt;一个安卓同学总结的: Emoji 识别与过滤&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://unicode.org/Public/emoji/11.0/&quot;&gt;emoji/11.0&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://www.jianshu.com/p/9682f8ce1260&quot;&gt;Emoji，没想到你是这样的...&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Wed, 02 Jan 2019 04:36:24 +0800</pubDate>
+        <link>http://zdaxia.com/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/</link>
+        <guid isPermaLink="true">http://zdaxia.com/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/</guid>
+        
+        
+      </item>
+    
+  </channel>
+</rss>

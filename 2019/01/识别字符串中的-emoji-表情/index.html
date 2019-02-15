@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <title>识别 Emoji 表情</title>
+  <meta name="description" content="在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。">
+  <meta name="author" content="Wei Wang">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="识别 Emoji 表情">
+  <meta name="twitter:description" content="在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。">
+  
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="识别 Emoji 表情">
+  <meta property="og:description" content="在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。">
+  
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+  <link href="/assets/images/favicon.png" rel="shortcut icon" type="image/png">
+  
+  <link rel="stylesheet" href="/css/main.css">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+
+  <link rel="canonical" href="http://zdaxia.com/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/">
+  <link rel="alternate" type="application/rss+xml" title="Da xia 的技术博客" href="http://zdaxia.com/feed.xml">
+  
+  <meta name="google-site-verification" content="1-1ZlHoRvM0T2FqPbW2S-qLgYXN6rsn52kErlMPd_gw" />
+  <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js">
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?4f454f730041ad0129a441e44852687b";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+</head>
+
+
+  <body>
+
+    <span class="mobile btn-mobile-menu">
+        <i class="fa fa-list btn-mobile-menu__icon"></i>
+        <i class="fa fa-angle-up btn-mobile-close__icon hidden"></i>
+    </span>
+    
+    <header class="panel-cover panel-cover--collapsed" style="background-image: url('/assets/images/background-cover.jpg')">
+  <div class="panel-main">
+
+    <div class="panel-main__inner panel-inverted">
+    <div class="panel-main__content">
+
+        <a href="/#blog" title="前往 Da xia 的技术博客 的主页" class="blog-button"><img src="/assets/images/avatar.jpg" width="80" alt="Da xia 的技术博客 logo" class="panel-cover__logo logo" /></a>
+        <h1 class="panel-cover__title panel-title"><a href="/#blog" title="link to homepage for Da xia 的技术博客" class="blog-button">Da xia 的技术博客</a></h1>
+        
+        <span class="panel-cover__subtitle panel-subtitle">不积跬步，无以至千里.</span>
+        
+        <hr class="panel-cover__divider" />
+        <p class="panel-cover__description">北京</p>
+        <hr class="panel-cover__divider panel-cover__divider--secondary" />
+        
+        
+        <p class="panel-cover__description">欢迎访问我的博客，这里主要记录我的工作和生活</p>
+        
+        
+        <div class="navigation-wrapper">
+          <div>
+            <nav class="cover-navigation cover-navigation--primary">
+              <ul class="navigation">
+                <li class="navigation__item"><a href="/#blog" title="访问博客" class="blog-button">博客</a></li>
+                
+                  <li class="navigation__item"><a href="#" target="_blank" title="了解更多关于我">关于</a></li>
+                
+              </ul>
+            </nav>
+          </div>
+          
+          <div><nav class="cover-navigation navigation--social">
+  <ul class="navigation">
+
+  
+
+  
+  
+  
+
+  
+
+  <!-- RSS -->
+  <li class="navigation__item">
+    <a href="/feed.xml" rel="author" title="RSS" target="_blank">
+      <i class='social fa fa-rss'></i>
+      <span class="label">RSS</span>
+    </a>
+  </li>
+
+  
+  <!-- Email -->
+  <li class="navigation__item">
+    <a href="mailto:woshizhoudaixa@gmail.com" title="Contact me">
+      <i class='social fa fa-envelope'></i>
+      <span class="label">Email</span>
+    </a>
+  </li>
+  
+
+  </ul>
+</nav>
+</div>
+        </div>
+      </div>
+    </div>
+    
+    
+    <div class="panel-cover--overlay cover-slate"></div>
+    
+  </div>
+</header>
+
+
+    <div class="content-wrapper">
+        <div class="content-wrapper__inner">
+            <article class="post-container post-container--single" itemscope itemtype="http://schema.org/BlogPosting">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2019-01-02 04:36:24 +0800" itemprop="datePublished" class="post-meta__date date">2019-01-02</time>
+      <span class="post-meta__tags tags"></span>
+      <span class="post-meta__date date" id="busuanzi_container_page_pv"> | 访问量：<span id="busuanzi_value_page_pv"></span> 次</span>
+    </div>
+    <h1 class="post-title">识别 Emoji 表情</h1>
+  </header>
+
+  <section class="post">
+    <p>在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。</p>
+
+<h3>Unicode 字符集</h3>
+
+<p>Unicode 标准为世界上几乎所有的[<sup>1]书写系统里所使用的每一个字符或符号定义了一个唯一的数字。这个数字叫做码点（code</sup> points），以 U+xxxx 这样的格式写成，格式里的 xxxx 代表四到六个十六进制的数。</p>
+
+<p>最初，Unicode 编码是被设计为 16 位的，提供了 65,536 个字符的空间。后来，考虑到要编码历史上的文字以及一些很少使用的日本汉字和中国汉字，Unicode 编码扩展到了 21 位（从 U+0000 到 U+10FFFF）。所以，我们现在接触到的 Unicode 是 21 位的编码。</p>
+
+<p>编码空间被分成 17 个平面（plane），每个平面有 65,536 个字符。</p>
+
+<p><img src="../../../images/UnicodePlanes.jpg" alt=""></p>
+
+<p>0 号平面叫做「基本多文种平面」（Basic Multilingual Plane, BMP），涵盖了几乎所有你能遇到的字符。其它平面叫做补充平面，大多是空的。</p>
+
+<h3>UTF 编码</h3>
+
+<p>Unicode 定义了字符到码点的映射，具体如何在计算机上存储，就需要使用 UTF （Unicode Transformation Formats，简称 UTF）编码了。常见的编码格式有 UIF-32、UTF-16 和 UTF-8，看名字就知道它们含义，32、16、8 表示用于存储的长度。使用 32 位存储一个码点（码点长度 21 位）太浪费空间了，现实中很少使用。UTF-16 使用 16 位固定长度的码元，BMP 的范围在 0000-FFFF 之间，一个码点直接与一个码元相映射，使用 UTF-16 比 UTF-32 节省一半的空间。其它平面的字符超过了 16 位的表示范围，可以使用两个 UTF-16 码元组合起来表示，叫做代理对（surrogate pair）。NSString 使用的就是 UTF-16 编码存储字符串，下面会详细介绍。UTF-8 的用途更广泛，已经是文件格式、网络协议以及 Web API 领域里事实上的标准了，它与 emoji 的关系不大，这里不做详细介绍了。</p>
+
+<h3>NSString 存储</h3>
+
+<p>NSString 对象代表的其实是用 UTF-16 编码的码元组成的数组。相应地，length 方法的返回值也是字符串包含的码元个数（而不是字符个数）。试着打印 😛(U+1F61B) 的长度，输出 2。因为 U+1F61B 超出了 BMP 的范围，需要使用两个 UTF-16 码元组合成代理对表示。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc"> NSString *emoji = @&quot;😛&quot;;
+ NSLog(@&quot;emoji.length: %@&quot;, @(emoji.length)); // emoji.length: 2
+</code></pre></figure>
+<p>在工作中经常会遇到限制用户输入字符个数的需求，比如要求用户名最长不超过 10 个字符，一般情况下使用 length 判断就可以了，如果用户输入了 emoji 表情，使用 length 判断可能就不符合要求了。用户输入了 3 个 👨🏻‍⚕️（1F468 1F3FB 200D 2695 FE0F），打印出length 的长度是 21（每个 👨🏻‍⚕️ 长度为: 2 + 2 + 1 + 1 + 1），已经超过 10 ，提示用超长了肯定不合理。如何判断字符长度呢？<code>enumerateSubstringsInRange:options:usingBlock:</code> 方法以字符为单位进行遍历，使用这个方法可以统计字符真正的长度。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">NSString *emoji = @&quot;👨🏻‍⚕️👨🏻‍⚕️👨🏻‍⚕️&quot;;
+NSLog(@&quot;length: %@&quot;, @(emoji.length)); // length: 21
+
+__block NSUInteger realLength = 0;
+[emoji enumerateSubstringsInRange:NSMakeRange(0, emoji.length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString * _Nullable substring, NSRange substringRange, NSRange enclosingRange, BOOL * _Nonnull stop) {
+    NSLog(@&quot;==&gt; subRange:%@, subStr:%@&quot;, NSStringFromRange(substringRange), substring);
+    realLength += 1;
+}];
+NSLog(@&quot;realLength: %@&quot;, @(realLength)); // realLength: 3
+
+</code></pre></figure>
+<h3>emoji</h3>
+
+<p>从<a href="https://en.wikipedia.org/wiki/Emoji">维基百科</a>了解到目前 emoji 已经更新到 <a href="https://unicode.org/Public/emoji/11.0/">11.0</a>，总共有 1212 个单码点的表情，还有更多的表情可以通过多个码点组合而成。具体的组合方式有：</p>
+
+<ul>
+<li>Emoji_Keycap_Sequence: 普调的字符 <code>#*0123456789</code> 加上 FE0F 20E3 就变成了 #️⃣*️⃣0️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣。</li>
+<li>Emoji_Flag_Sequence: 国旗表情，这类 emoji 串是通过两个地域指示符（regional_indicator）组合的方式来表示一个国家的国旗。如 🇿🇼(1F1FF 1F1FC)，总共 258 个。</li>
+<li>Emoji_Modifier_Sequence: 不同肤色的表情，如 ☝️(261D) 加上 1F3FF 就变成了 ☝🏿(261D 1F3FF)，这类不同肤色的表情有 530 个。</li>
+<li>Emoji_ZWJ_Sequence: 通过 ZWJ 字符（U+200D， Zero Width Joiner）将基本 emoji 字符或 Emoji_Modifier_Sequence连接起来，形成一个新的 emoji 表示样式，如 👨‍❤️‍👨(1F468 200D 2764 FE0F 200D 1F468) 由 👨(1F468) + ❤️(2764 FE0F) + 👨(1F468) 组合而成。这表情是表示一对基友么？</li>
+<li>Emoji_Tag_Sequence: 只有三个 🏴󠁧󠁢󠁥󠁮󠁧󠁿、🏴󠁧󠁢󠁳󠁣󠁴󠁿、🏴󠁧󠁢󠁷󠁬󠁳󠁿。</li>
+<li>Emoji_presentation_sequence: 即由基本 emoji 字符加上 U+FE0F 组合而成 emoji 序列串。例如 ❤️(U+26A1 U+FE0F)。</li>
+</ul>
+
+<h3>识别字符串中的 emoji</h3>
+
+<p><a href="https://unicode.org/Public/emoji/11.0/emoji-data.txt">emoji-data.txt</a> 的第一个表格中包含了所有的单码点，总数是 1250，除去 <code>#*</code>、<code>0-9</code>和 <code>a-z</code> 正好 1212 个。多码点 emoji 也是由单码点 emoji 追加一些特殊字符组合而成，所以只要字符的第一个码点在这个表格罗列的码点范围内，就可以判定它是 emoji。</p>
+
+<p><strong>第一步</strong>，提取表格中的码点。我用 Python 写了一个简单的脚本格式化码点范围，输出一个数组复制到 OC 代码中使用。</p>
+<figure class="highlight"><pre><code class="language-python" data-lang="python">#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+
+# 使用方法， python3 getEmojiData.py emoji-data.txt emoji-all-data.txt
+
+readPath = os.path.join(os.path.abspath(&#39;.&#39;), sys.argv[1])
+
+resultStr = &#39;&#39;
+with open(readPath, &#39;r&#39;) as f:
+    for line in f.readlines():
+        codeStr = line.partition(&#39;;&#39;)[0]
+        if len(codeStr.rstrip()) == 0:
+            continue
+        pointList = codeStr.rstrip().split(&#39;..&#39;)
+        formatPair = &#39;&#39;
+        if len(pointList) == 1:
+            formatPair = &#39;{0x%s, 0x%s},&#39; % (pointList[0], pointList[0])
+        else:
+            formatPair = &#39;{0x%s, 0x%s},&#39; % (pointList[0], pointList[1])
+        resultStr = resultStr + &#39;\n&#39; + formatPair
+
+writePath = os.path.join(os.path.abspath(&#39;.&#39;), sys.argv[2])
+with open(writePath, &#39;w&#39;) as f:
+    f.write(resultStr)
+</code></pre></figure>
+<p>在 OC 代码中创建一个结构体数组，类似下面这样：</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">typedef struct {
+    uint32_t start;
+    uint32_t end;
+} CodePair;
+
+static CodePair CodePairList[] = {
+    {0x00A9, 0x00A9},
+    {0x00AE, 0x00AE},
+    {0x203C, 0x203C},
+    xxx
+
+   };
+</code></pre></figure>
+<p><strong>第二步</strong>，遍历字符串中的字符，提取字符的第一个码点，判断是否在范围内。要区分两种情况，emoji 是单码点的，如 ©️(U+00A9)，直接用 <code>characterAtIndex</code> 取码点；大部分 emoji 的码点数 &gt;= 2，直接使用 <code>characterAtIndex</code> 就不行了。例如😀(1F600)，打印出来得结果是：</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">NSString *emoji = @&quot;😀&quot;;
+NSLog(@&quot;%x, %x&quot;, [emoji characterAtIndex:0], [emoji characterAtIndex:1]); // d83d, de00
+</code></pre></figure>
+<p>Unicode 中有 17 个平面，在第 0 平面中，有一个特殊的代理区域，不表示任何字符，只用于指向第 1 到第 16 个平面中的字符，这段区域是：D800—DFFF.。其中 0xD800—0xDBFF 是前导代理(lead surrogates)，0xDC00—0xDFFF 是后尾代理(trail surrogates)。具体的公式：<code>0x10000 + (前导-0xD800) * 0x400 + (后导-0xDC00) = utf-16编码</code></p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">NSString *emoji = @&quot;😀&quot;;
+const unichar hs = [emoji characterAtIndex:0];
+if (0xd800 &lt;= hs &amp;&amp; hs &lt;= 0xdbff) {
+    if (emoji.length &gt; 1) {
+        const unichar ls = [emoji characterAtIndex:1];
+        const int uc = ((hs - 0xd800) * 0x400) + (ls - 0xdc00) + 0x10000;
+        NSLog(@&quot;%x&quot;, uc); // 1f600
+    }
+}
+</code></pre></figure>
+<h4>参考文档</h4>
+
+<ul>
+<li><a href="https://objccn.io/issue-9-1/">objccn.io: NSString 与 Unicode</a></li>
+<li><a href="https://mupceet.com/2018/07/emoji-distinguish&amp;filter/">一个安卓同学总结的: Emoji 识别与过滤</a></li>
+<li><a href="https://unicode.org/Public/emoji/11.0/">emoji/11.0</a></li>
+<li><a href="https://www.jianshu.com/p/9682f8ce1260">Emoji，没想到你是这样的...</a></li>
+</ul>
+
+  </section>
+</article>
+
+<section class="read-more">
+   
+   
+   <div class="read-more-item">
+       <span class="read-more-item-dim">最近的文章</span>
+       <h2 class="post-list__post-title post-title"><a href="/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/" title="link to CoreText 实现镂空文字效果">CoreText 实现镂空文字效果</a></h2>
+       <p class="excerpt">CoreText 基础CoreText 是用于处理文字和字体的底层技术。它直接和 Core Graphics 交互，具有很高的文字渲染效率。CoreText 对象的架构图CTFramesetter 接受 NSSAttributedString 和 CGPath 参数，创建一个或者多个 CTFrame。每个 CTFrame 代表一个段落，包含一行或者多行文字，也就是 CTLine。在创建 CTFrame 时有几个生成了 CTLine，它可以直接渲染到 graphics context。CTR...&hellip;</p>
+       <div class="post-list__meta"><time datetime="2019-01-06 18:36:24 +0800" class="post-list__meta--date date">2019-01-06</time> &#8226; <span class="post-list__meta--tags tags"></span><a class="btn-border-small" href=/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/>继续阅读</a></div>
+   </div>
+   
+   
+   
+</section>
+
+<section class="post-comments">
+  
+    <div class="ds-thread" data-thread-key="/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/" data-title="识别 Emoji 表情" data-url="http://zdaxia.com/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/"></div>
+    <script type="text/javascript">
+        var duoshuoQuery = {short_name:"snail"};
+        (function() {
+            var ds = document.createElement('script');
+            ds.type = 'text/javascript';ds.async = true;
+            ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+            ds.charset = 'UTF-8';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+        })();
+    </script>
+  
+  
+  
+  
+</section>
+
+
+            <section class="footer">
+    <footer>
+    	<span class="footer__copyright">本站点采用<a href="http://creativecommons.org/licenses/by-nc-sa/4.0/">知识共享 署名-非商业性使用-相同方式共享 4.0 国际 许可协议</a></span>
+        <span class="footer__copyright">由 <a href="https://jekyllrb.com">Jekyll</a> 于 2019-02-15 生成，感谢 <a href="https://github.com/">Github</a> 为本站提供存储空间</span>
+        <span class="footer__copyright">本站由 <a href="http://zdaxia.com">@zdaxia</a> 创建，采用 <a href="https://github.com/onevcat/vno-jekyll">Vno - Jekyll</a> 作为主题，您可以在 GitHub 找到<a href="https://github.com/daxiazhou/daxiazhou.github.io">本站源码</a> - &copy; 2019</span>
+        <span id="busuanzi_container_site_pv">本站总访问量：<span id="busuanzi_value_site_pv"></span>次</span>
+
+    </footer>
+</section>
+
+        </div>
+    </div>
+    
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+
+<script type="text/javascript" src="/js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<script type="text/javascript" src="/js/main.js"></script>
+
+
+<script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-82111433-1', 'zdaxia.com');
+    ga('send', 'pageview');
+</script>
+
+
+    
+  </body>
+
+</html>

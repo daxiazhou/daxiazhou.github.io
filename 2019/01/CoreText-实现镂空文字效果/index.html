@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <title>CoreText 实现镂空文字效果</title>
+  <meta name="description" content="CoreText 基础">
+  <meta name="author" content="Wei Wang">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="CoreText 实现镂空文字效果">
+  <meta name="twitter:description" content="CoreText 基础">
+  
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="CoreText 实现镂空文字效果">
+  <meta property="og:description" content="CoreText 基础">
+  
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+  <link href="/assets/images/favicon.png" rel="shortcut icon" type="image/png">
+  
+  <link rel="stylesheet" href="/css/main.css">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+
+  <link rel="canonical" href="http://zdaxia.com/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/">
+  <link rel="alternate" type="application/rss+xml" title="Da xia 的技术博客" href="http://zdaxia.com/feed.xml">
+  
+  <meta name="google-site-verification" content="1-1ZlHoRvM0T2FqPbW2S-qLgYXN6rsn52kErlMPd_gw" />
+  <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js">
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?4f454f730041ad0129a441e44852687b";
+      var s = document.getElementsByTagName("script")[0]; 
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+</head>
+
+
+  <body>
+
+    <span class="mobile btn-mobile-menu">
+        <i class="fa fa-list btn-mobile-menu__icon"></i>
+        <i class="fa fa-angle-up btn-mobile-close__icon hidden"></i>
+    </span>
+    
+    <header class="panel-cover panel-cover--collapsed" style="background-image: url('/assets/images/background-cover.jpg')">
+  <div class="panel-main">
+
+    <div class="panel-main__inner panel-inverted">
+    <div class="panel-main__content">
+
+        <a href="/#blog" title="前往 Da xia 的技术博客 的主页" class="blog-button"><img src="/assets/images/avatar.jpg" width="80" alt="Da xia 的技术博客 logo" class="panel-cover__logo logo" /></a>
+        <h1 class="panel-cover__title panel-title"><a href="/#blog" title="link to homepage for Da xia 的技术博客" class="blog-button">Da xia 的技术博客</a></h1>
+        
+        <span class="panel-cover__subtitle panel-subtitle">不积跬步，无以至千里.</span>
+        
+        <hr class="panel-cover__divider" />
+        <p class="panel-cover__description">北京</p>
+        <hr class="panel-cover__divider panel-cover__divider--secondary" />
+        
+        
+        <p class="panel-cover__description">欢迎访问我的博客，这里主要记录我的工作和生活</p>
+        
+        
+        <div class="navigation-wrapper">
+          <div>
+            <nav class="cover-navigation cover-navigation--primary">
+              <ul class="navigation">
+                <li class="navigation__item"><a href="/#blog" title="访问博客" class="blog-button">博客</a></li>
+                
+                  <li class="navigation__item"><a href="#" target="_blank" title="了解更多关于我">关于</a></li>
+                
+              </ul>
+            </nav>
+          </div>
+          
+          <div><nav class="cover-navigation navigation--social">
+  <ul class="navigation">
+
+  
+
+  
+  
+  
+
+  
+
+  <!-- RSS -->
+  <li class="navigation__item">
+    <a href="/feed.xml" rel="author" title="RSS" target="_blank">
+      <i class='social fa fa-rss'></i>
+      <span class="label">RSS</span>
+    </a>
+  </li>
+
+  
+  <!-- Email -->
+  <li class="navigation__item">
+    <a href="mailto:woshizhoudaixa@gmail.com" title="Contact me">
+      <i class='social fa fa-envelope'></i>
+      <span class="label">Email</span>
+    </a>
+  </li>
+  
+
+  </ul>
+</nav>
+</div>
+        </div>
+      </div>
+    </div>
+    
+    
+    <div class="panel-cover--overlay cover-slate"></div>
+    
+  </div>
+</header>
+
+
+    <div class="content-wrapper">
+        <div class="content-wrapper__inner">
+            <article class="post-container post-container--single" itemscope itemtype="http://schema.org/BlogPosting">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="2019-01-06 18:36:24 +0800" itemprop="datePublished" class="post-meta__date date">2019-01-06</time>
+      <span class="post-meta__tags tags"></span>
+      <span class="post-meta__date date" id="busuanzi_container_page_pv"> | 访问量：<span id="busuanzi_value_page_pv"></span> 次</span>
+    </div>
+    <h1 class="post-title">CoreText 实现镂空文字效果</h1>
+  </header>
+
+  <section class="post">
+    <h3>CoreText 基础</h3>
+
+<p>CoreText 是用于处理文字和字体的底层技术。它直接和 Core Graphics 交互，具有很高的文字渲染效率。CoreText 对象的架构图</p>
+
+<div align=center>
+<img src="../../../images/CoreText_1/core_text_arch_2x.png" width = "600"/>
+</div>
+
+<p>CTFramesetter 接受 NSSAttributedString 和 CGPath 参数，创建一个或者多个 CTFrame。每个 CTFrame 代表一个段落，包含一行或者多行文字，也就是 CTLine。在创建 CTFrame 时有几个生成了 CTLine，它可以直接渲染到 graphics context。CTRun 是一组具有共同属性和方向的连续字形(glyph)，每行可以报考一个或者多个 CTRun。</p>
+
+<h4>绘制一段文字</h4>
+
+<p>使用 CoreText 绘制一段文字一般需要估下过程：
+ * 创建 AttributedString，定义段落、字体等样式
+ * 获取 context，有时还需要转换 context 的坐标系
+ * 创建 CTFramesetter、绘制区域的 Path，生成 CTFrame
+ * 绘制，整段绘制（CTFrameDraw）或者逐行绘制（CTLineDraw）</p>
+
+<p>下面的代码逐行绘制了一段文字，并为每一行画了一个红色边框：</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc"> // UIView 子类中
+- (void)drawRect:(CGRect)rect
+{
+    // 1. 获取 context
+    CGContextRef context = UIGraphicsGetCurrentContext();
+
+    // 2. 翻转坐标系
+    CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+    CGContextTranslateCTM(context, 0, self.bounds.size.height);
+    CGContextScaleCTM(context, 1.0, -1.0);
+
+    // 3. CTFramesetterRef
+    CTFramesetterRef frameSetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)self.attrString);
+
+    // 4. 创建绘制区域
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, self.bounds);
+
+    // 5. 创建 CTFrame
+    CTFrameRef frame = CTFramesetterCreateFrame(frameSetter, CFRangeMake(0, self.attrString.length), path, NULL);
+
+
+    // 6. 绘制
+    //CTFrameDraw(frame, context);
+
+    // 逐行绘制
+    CFArrayRef Lines = CTFrameGetLines(frame);
+    CFIndex lineCount = CFArrayGetCount(Lines);
+    CGPoint origins[lineCount];
+    CTFrameGetLineOrigins(frame, CFRangeMake(0, 0), origins);
+    for (CFIndex i = 0 ; i &lt; lineCount; i ++) {
+        CTLineRef line = CFArrayGetValueAtIndex(Lines, i);
+
+        CGPoint lineOrigin = origins[i];
+        CGContextSetTextPosition(context, lineOrigin.x, lineOrigin.y);
+
+        CGRect lineBounds = CTLineGetImageBounds((CTLineRef)line, context);
+        NSLog(@&quot;lineBounds = %@&quot;,NSStringFromCGRect(lineBounds));
+
+        CGContextSetLineWidth(context, 1.0);
+        CGContextAddRect(context, lineBounds);
+        CGContextSetStrokeColorWithColor(context, [UIColor redColor].CGColor);
+        CGContextStrokeRect(context, lineBounds);
+        CTLineDraw(line, context);
+    }
+
+    CFRelease(frame);
+    CFRelease(path);
+    CFRelease(frameSetter);
+}
+
+- (void)setAttrString:(NSAttributedString *)attrString
+{
+    if (_attrString != attrString) {
+        _attrString = attrString;
+        [self setNeedsDisplay];
+    }
+}
+</code></pre></figure>
+<p>绘制的文字：</p>
+
+<div align=center>
+<img src="../../../images/CoreText_1/DrawLines.jpg" width = "400"/>
+</div>
+
+<blockquote>
+<p>上面代码中翻转了坐标系，这是因为 <code>drawRect:</code> 方法中获取的当前 contenx 已经被调整为 UIKit 的坐标系了（左上角是原点），但是 CoreText 使用的是 Core Graphics 的坐标系（左下角是原点），所以要把当前 context 坐标系还原成左下角为原点。</p>
+</blockquote>
+
+<h3>镂空文字效果</h3>
+
+<p>实现镂空文字最简单的方法就是请设计师给一个文字镂空的切图，如果文案是动态配置的，这种方法就不行了。使用代码实现镂空效果要用到 CALayer 的 mask 属性。mask 也是一个 CALayer 对象，但只是用到它的轮廓，在轮廓内的父图层才能显示出来。</p>
+
+<div align=center>
+ <img src="../../../images/CoreText_1/calayer_mask.jpg" width = "400"/>
+</div>
+
+<p>为了实现文字镂空效果，我们可以借助 CoreText 取出文字的 Path，创建 CAShapeLayer 绘制出文字外部的轮廓，将 CAShapeLayer 作为宿主图层的 mask。</p>
+
+<p>第一步，取出文字的 path。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">+ (UIBezierPath *)singleLinePathWithText:(NSString *)text font:(UIFont *)font
+{
+    CTFontRef ctFont = CTFontCreateWithName((__bridge CFStringRef)font.fontName, font.pointSize, NULL);
+    if (!ctFont) {
+        return nil;
+    }
+    // 创建 attributedString
+    NSDictionary *attrs = @{(__bridge id)kCTFontAttributeName : (__bridge id)ctFont};
+    NSAttributedString *attrString = [[NSAttributedString alloc] initWithString:text attributes:attrs];
+    CFRelease(ctFont);
+
+    // 创建 Line
+    CTLineRef line = CTLineCreateWithAttributedString((__bridge CFTypeRef)attrString);
+    if (!line) {
+        return nil;
+    }
+
+    CGMutablePathRef cgPath = CGPathCreateMutable();
+    CFArrayRef runs = CTLineGetGlyphRuns(line);
+    for (CFIndex iRun = 0, iRunMax = CFArrayGetCount(runs); iRun &lt; iRunMax; iRun ++) {
+        CTRunRef run = (CTRunRef)CFArrayGetValueAtIndex(runs, iRun);
+        CTFontRef runFont = CFDictionaryGetValue(CTRunGetAttributes(run), kCTFontAttributeName);
+        for (CFIndex iGlyph = 0, iGlyphMax = CTRunGetGlyphCount(run); iGlyph &lt; iGlyphMax; iGlyph++) {
+            CFRange glyphRange = CFRangeMake(iGlyph, 1);
+            CGGlyph glyph;
+            CGPoint position;
+            CTRunGetGlyphs(run, glyphRange, &amp;glyph);
+            CTRunGetPositions(run, glyphRange, &amp;position);
+            // 读取文字的 path
+            CGPathRef glyphPath = CTFontCreatePathForGlyph(runFont, glyph, NULL);
+            if (glyphPath) {
+                CGAffineTransform transform = CGAffineTransformMakeTranslation(position.x, position.y);
+                CGPathAddPath(cgPath, &amp;transform, glyphPath);
+                CGPathRelease(glyphPath);
+            }
+        }
+    }
+
+    UIBezierPath *path = [UIBezierPath bezierPathWithCGPath:cgPath];
+    CGRect boundingBox = CGPathGetPathBoundingBox(cgPath);
+    CFRelease(cgPath);
+    CFRelease(line);
+
+    // 翻转坐标系（变成左上角为原点）
+    [path applyTransform:CGAffineTransformMakeScale(1.0, -1.0)];
+    [path applyTransform:CGAffineTransformMakeTranslation(0.0, boundingBox.size.height)];
+
+    return path;
+}
+</code></pre></figure>
+<p>第二步，创建 masklayer。我封装了一个简单的 View，将文字置于与视图的中间。</p>
+<figure class="highlight"><pre><code class="language-objc" data-lang="objc">// UIView 子类
+@implementation ZDXCutoutLabel
+
+- (void)updateWithText:(NSString *)text font:(UIFont *)font
+{
+    UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.bounds];
+    UIBezierPath *textPath = [UIBezierPath singleLinePathWithText:text font:font];
+
+    CGRect textRect = CGPathGetPathBoundingBox(textPath.CGPath);
+    CGRect centerRect = RectCenteredInRect(textRect, self.bounds);
+    CGAffineTransform tansform = CGAffineTransformMakeTranslation(centerRect.origin.x - textRect.origin.x, centerRect.origin.y - textRect.origin.y);
+    [textPath applyTransform:tansform];
+    [path appendPath:textPath];
+
+    CAShapeLayer *pathLayer = [CAShapeLayer layer];
+    pathLayer.path = [path CGPath];
+    self.layer.mask = pathLayer;
+}
+
+@end
+</code></pre></figure>
+<p>镂空文字效果，背景是一个 gif 图片。</p>
+
+<div align=center>
+ <img src="../../../images/CoreText_1/cutout_text.gif" width = "300"/>
+</div>
+
+<p>图层结构:</p>
+
+<div align=center>
+ <img src="../../../images/CoreText_1/cutout_arc.jpg" width = "400"/>
+</div>
+
+<p><a href="https://github.com/daxiazhou/Demos/tree/master/NSStringPathDemo">Demo 在这里</a></p>
+
+  </section>
+</article>
+
+<section class="read-more">
+   
+   
+   <div class="read-more-item">
+       <span class="read-more-item-dim">最近的文章</span>
+       <h2 class="post-list__post-title post-title"><a href="/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/" title="link to Porter-Duff Blending 实现镂空文字效果">Porter-Duff Blending 实现镂空文字效果</a></h2>
+       <p class="excerpt">Blend Modes在 Core Graphics 中，我们通过设置 Blend Mode 混合两张图片，或者把图片混合到当前 context 的背景中。通常的使用步骤如下:绘制背景设置 CGContextSetBlendMode绘制图片到背景上有两张图片使用 kCGBlendModeMultiply 混合后的结果是这样的：CGBlendMode 定义了很多种混合模式供我们使用，其中第一部分的混合效果在 Using Blend Modes with Images 可以查看。下一节一起来了...&hellip;</p>
+       <div class="post-list__meta"><time datetime="2019-02-14 18:36:24 +0800" class="post-list__meta--date date">2019-02-14</time> &#8226; <span class="post-list__meta--tags tags"></span><a class="btn-border-small" href=/2019/02/Core-Graphics-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/>继续阅读</a></div>
+   </div>
+   
+   
+   
+   
+   <div class="read-more-item">
+       <span class="read-more-item-dim">更早的文章</span>
+       <h2 class="post-list__post-title post-title"><a href="/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/" title="link to 识别 Emoji 表情">识别 Emoji 表情</a></h2>
+       <p class="excerpt">在处理用户输入的内容时候，有些场景不希望输入 emoji，在 iOS 中如何检测 emoji？结合网上的一些资料，我总结一下识别 emoji 的方法，在介绍 emoji 之前先了解下字符集和字符编码相关的基础知识。Unicode 字符集Unicode 标准为世界上几乎所有的[1]书写系统里所使用的每一个字符或符号定义了一个唯一的数字。这个数字叫做码点（code points），以 U+xxxx 这样的格式写成，格式里的 xxxx 代表四到六个十六进制的数。最初，Unicode 编码是被设计...&hellip;</p>
+       <div class="post-list__meta"><time datetime="2019-01-02 04:36:24 +0800" class="post-list__meta--date date">2019-01-02</time> &#8226; <span class="post-list__meta--tags tags"></span><a class="btn-border-small" href=/2019/01/%E8%AF%86%E5%88%AB%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%AD%E7%9A%84-emoji-%E8%A1%A8%E6%83%85/>继续阅读</a></div>
+   </div>
+   
+</section>
+
+<section class="post-comments">
+  
+    <div class="ds-thread" data-thread-key="/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/" data-title="CoreText 实现镂空文字效果" data-url="http://zdaxia.com/2019/01/CoreText-%E5%AE%9E%E7%8E%B0%E9%95%82%E7%A9%BA%E6%96%87%E5%AD%97%E6%95%88%E6%9E%9C/"></div>
+    <script type="text/javascript">
+        var duoshuoQuery = {short_name:"snail"};
+        (function() {
+            var ds = document.createElement('script');
+            ds.type = 'text/javascript';ds.async = true;
+            ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+            ds.charset = 'UTF-8';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+        })();
+    </script>
+  
+  
+  
+  
+</section>
+
+
+            <section class="footer">
+    <footer>
+    	<span class="footer__copyright">本站点采用<a href="http://creativecommons.org/licenses/by-nc-sa/4.0/">知识共享 署名-非商业性使用-相同方式共享 4.0 国际 许可协议</a></span>
+        <span class="footer__copyright">由 <a href="https://jekyllrb.com">Jekyll</a> 于 2019-02-15 生成，感谢 <a href="https://github.com/">Github</a> 为本站提供存储空间</span>
+        <span class="footer__copyright">本站由 <a href="http://zdaxia.com">@zdaxia</a> 创建，采用 <a href="https://github.com/onevcat/vno-jekyll">Vno - Jekyll</a> 作为主题，您可以在 GitHub 找到<a href="https://github.com/daxiazhou/daxiazhou.github.io">本站源码</a> - &copy; 2019</span>
+        <span id="busuanzi_container_site_pv">本站总访问量：<span id="busuanzi_value_site_pv"></span>次</span>
+
+    </footer>
+</section>
+
+        </div>
+    </div>
+    
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+
+<script type="text/javascript" src="/js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<script type="text/javascript" src="/js/main.js"></script>
+
+
+<script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-82111433-1', 'zdaxia.com');
+    ga('send', 'pageview');
+</script>
+
+
+    
+  </body>
+
+</html>
